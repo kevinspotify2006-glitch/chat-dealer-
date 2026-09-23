@@ -36,7 +36,10 @@ const state0=()=>({
  marketTrend:"Balanced",event:null,location:"Arnhem",lastAction:"Welcome to your dealership.",
  achievements:[], selected:null
 });
-let s=load()||state0(), page="dashboard", market=[];
+const savedState=load();
+const defaults=state0();
+let s=savedState?Object.assign(defaults,savedState,{staff:Array.isArray(savedState.staff)&&savedState.staff.length?savedState.staff:defaults.staff,vehicles:Array.isArray(savedState.vehicles)?savedState.vehicles:[],transactions:Array.isArray(savedState.transactions)?savedState.transactions:[],customers:Array.isArray(savedState.customers)?savedState.customers:[],loans:Array.isArray(savedState.loans)?savedState.loans:[],upgrades:Object.assign({},defaults.upgrades,savedState.upgrades||{}),stats:Object.assign({},defaults.stats,savedState.stats||{}),location:locations.some(x=>x[0]===savedState.location)?savedState.location:defaults.location}):defaults;
+let page="dashboard", market=[];
 function money(n){return new Intl.NumberFormat("nl-NL",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(Math.round(n||0))}
 function pct(n){return Math.round(n)+"%"}
 function clamp(n,a,b){return Math.max(a,Math.min(b,n))}
@@ -52,7 +55,7 @@ function vehicle(){const m=pick(models),year=rint(2015,2025),mileage=rint(8000,1
 function seedMarket(){market=Array.from({length:14},vehicle)}
 seedMarket();
 function activeLoans(){return s.loans.reduce((a,l)=>a+l.remaining,0)}
-function monthlyExpenses(){return s.staff.reduce((a,e)=>a+e.salary,0)+locations.find(x=>x[0]===s.location)[1]+s.loans.reduce((a,l)=>a+l.payment,0)}
+function monthlyExpenses(){const loc=locations.find(x=>x[0]===s.location)||locations[0];return s.staff.reduce((a,e)=>a+(Number(e.salary)||0),0)+(loc[1]||0)+s.loans.reduce((a,l)=>a+(Number(l.payment)||0),0)}
 function netWorth(){return s.cash+s.vehicles.reduce((a,v)=>a+v.marketValue,0)-activeLoans()}
 function pageTitle(){return ({dashboard:"Dashboard",dealership:"Dealership",inventory:"Inventory",market:"Vehicle Market",customers:"Customers",sales:"Sales",staff:"Staff",finances:"Finances",upgrades:"Upgrades",expansion:"Expansion",company:"Company",settings:"Settings"})[page]}
 function nav(){return ["dashboard","dealership","inventory","market","customers","sales","staff","finances","upgrades","expansion","company","settings"]}
@@ -123,7 +126,7 @@ if(Math.random()<.24){const events=[["SUV boom","SUV demand rises this week."],[
 if(Math.random()<.65){const listed=s.vehicles.filter(v=>v.status==="Listed");if(listed.length){const v=pick(listed);const c={id:id("c"),name:pick(names),type:pick(customerTypes),budget:Math.round(v.marketValue*rand(.82,1.12)),interest:clamp(rint(50,92)+s.upgrades.marketing*5,20,100),preference:v.body,skill:rint(1,8)};s.customers.unshift(c);s.customers=s.customers.slice(0,12);s.stats.customers++;}}
 market=market.map(v=>({...v,marketValue:Math.max(1500,Math.round(v.marketValue*(1+rand(-.018,.018))))}));if(Math.random()<.35)market.push(vehicle());market=market.slice(0,18);if(s.cash<0)s.lastAction="Cash is negative. Sell inventory or take a loan to recover.";save();render()}
 document.addEventListener("click",e=>{if(e.target.matches("[data-close]"))closeModal()});
-render();
+try{render()}catch(err){console.error(err);const root=document.getElementById("app");root.innerHTML='<div style="padding:40px;font-family:system-ui;color:white;background:#0b0d10;min-height:100vh"><h1>Game could not start</h1><p>The saved game data was incompatible and has been reset.</p><button onclick="localStorage.removeItem(\'cdmt-save-v1\');location.reload()" style="padding:12px 16px;border:0;border-radius:8px;background:#f0b90b">Reset game</button></div>'}
 })();
 </script>
 </body>
