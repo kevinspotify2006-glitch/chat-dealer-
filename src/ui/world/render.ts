@@ -1108,7 +1108,7 @@ export function renderScene(canvas: HTMLCanvasElement, s: Scene): void {
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     drawIsoArchitecture(g, cam, lot, dpr);
     g.restore();
-    g.setTransform(ax, ay, bx, by, W/2-cam.x*ax-cam.y*bx, H/2-cam.x*ay-cam.y*by);
+    const zz = cam.zoom * dpr;\n    const rax = zz * .866, ray = zz * .5, rbx = -zz * .866, rby = zz * .5;\n    g.setTransform(rax, ray, rbx, rby, W/2-cam.x*rax-cam.y*rbx, H/2-cam.x*ray-cam.y*rby);
   }
   // Just bought: the new land lights up and fades in.
   if (s.expand && s.expand.p < 1) {
