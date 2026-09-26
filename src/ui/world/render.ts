@@ -1100,9 +1100,16 @@ export function renderScene(canvas: HTMLCanvasElement, s: Scene): void {
     lockedHud.push({ label: L.label, x: top ? L.w / 2 : lot.w + (L.w - lot.w) / 2, y: top ? -L.dy / 2 : lot.h / 2, tone: 'warn', icon: '🔒' });
   }
 
-  // The lot itself.
+  // The lot itself: ground plane first, then the raised 2.5D architecture.
   g.imageSmoothingEnabled = true;
   g.drawImage(cache.canvas, 0, 0, lot.w, lot.h);
+  if (iso) {
+    g.save();
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawIsoArchitecture(g, cam, lot, dpr);
+    g.restore();
+    g.setTransform(ax, ay, bx, by, W/2-cam.x*ax-cam.y*bx, H/2-cam.x*ay-cam.y*by);
+  }
   // Just bought: the new land lights up and fades in.
   if (s.expand && s.expand.p < 1) {
     const e = s.expand;
