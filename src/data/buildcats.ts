@@ -5,6 +5,7 @@
  */
 import type { ObjDef } from './lot';
 import { ZONE_BY_CODE } from './lot';
+import type { ZoneCode } from '../sim/types';
 
 export type BuildTabId =
   | 'all' | 'zones' | 'structure' | 'showroom' | 'vehicles' | 'customers' | 'staff' | 'service' | 'finance' | 'marketing'
@@ -63,3 +64,16 @@ export const PANEL_TABS: BuildTabId[] = ['zones', 'style', 'land', 'templates'];
 
 /** Old saved tab ids from earlier versions map onto the new tabs. */
 export const LEGACY_TAB: Record<string, BuildTabId> = { office: 'staff', customer: 'customers', outdoor: 'exterior' };
+
+
+export type BuildContextId='showroom'|'workshop'|'office'|'storage'|'outdoor'|'customer';
+export interface BuildContext{id:BuildContextId;name:string;icon:string;subtitle:string;tabs:BuildTabId[];}
+export const BUILD_CONTEXTS:BuildContext[]=[
+{id:'showroom',name:'Showroom',icon:'car',subtitle:'Klanten, verkoop en presentatie',tabs:['showroom','vehicles','customers','finance','technology','decoration','storage']},
+{id:'workshop',name:'Werkplaats',icon:'wrench',subtitle:'Reparatie, diagnose en service',tabs:['service','vehicles','technology','ev','storage','security','decoration']},
+{id:'office',name:'Kantoor',icon:'people',subtitle:'Team, administratie en management',tabs:['staff','finance','marketing','technology','storage','decoration']},
+{id:'storage',name:'Opslag',icon:'box',subtitle:'Voorraad, onderdelen en logistiek',tabs:['storage','vehicles','security','technology','decoration']},
+{id:'outdoor',name:'Buitenterrein',icon:'tree',subtitle:'Parkeren, wegen, groen en laden',tabs:['parking','exterior','vehicles','ev','security','decoration']},
+{id:'customer',name:'Klantenruimte',icon:'customer',subtitle:'Ontvangst en klantbeleving',tabs:['customers','showroom','finance','technology','decoration','storage']}];
+export const BUILD_CONTEXT_BY_ID=Object.fromEntries(BUILD_CONTEXTS.map(c=>[c.id,c])) as Record<BuildContextId,BuildContext>;
+export function contextForZone(code:ZoneCode):BuildContextId{switch(code){case's':case'r':case'e':case'f':return'showroom';case'w':case'd':case'v':case'p':case'q':return'workshop';case'o':case'm':case'k':case'n':case'u':return'office';case't':return'storage';case'l':case'b':return'customer';default:return'outdoor';}}
