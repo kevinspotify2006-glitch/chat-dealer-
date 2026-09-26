@@ -1692,3 +1692,17 @@ body:has(.world.building) .notify-stack, body.driving .notify-stack { display: n
   .world.building .world-canvas {background:#071016}
 }
 @media (max-width:900px){.bp-context-head{display:flex;flex-direction:column;align-items:stretch;gap:5px;padding:5px 10px 6px;border-bottom:1px solid var(--line-soft)}.bp-context-title{display:flex;flex-direction:row;align-items:baseline;gap:8px}.bp-context-title strong{font-size:12px}.bp-context-title span{font-size:9.5px}.bp-contexts{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}.bp-context{min-height:31px;padding:0 10px;border-radius:8px;font-size:10px}}
+
+/* Final Build Mode alignment pass */
+@media (min-width:901px) {
+  .world.building .bp-head { height:42px; min-height:42px; }
+  .world.building .bp-modes { height:48px; padding:5px 14px; }
+  .world.building .bp-mode { height:38px; min-height:38px; }
+  .world.building .bp-tools { height:28px; min-height:28px; }
+  .world.building .bp-tools .bp-tool { height:24px !important; min-height:24px !important; }
+  .world.building .bp-context-head { height:44px; min-height:44px; }
+  .world.building .bp-context { height:30px; min-height:30px; }
+  .world.building .bp-catbar { height:38px; min-height:38px; }
+  .world.building .bp-tab { height:28px; min-height:28px; }
+  .world.building .bp-body { flex:1 1 auto; min-height:0; }
+}
