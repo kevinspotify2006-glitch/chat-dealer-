@@ -926,16 +926,16 @@ function drawIsoArchitecture(g: CanvasRenderingContext2D, cam: Camera, lot: Lot,
     g.beginPath();
     g.moveTo(aa.x + 3*dpr, aa.y + 5*dpr);
     g.lineTo(bb.x + 3*dpr, bb.y + 5*dpr);
-    g.lineTo(bb.x + 3*dpr, bb.y + H*dpr + 5*dpr);
-    g.lineTo(aa.x + 3*dpr, aa.y + H*dpr + 5*dpr);
+    g.lineTo(bb.x + 3*dpr, bb.y - H*dpr + 5*dpr);
+    g.lineTo(aa.x + 3*dpr, aa.y - H*dpr + 5*dpr);
     g.closePath(); g.fill();
 
     g.fillStyle = col;
     g.beginPath();
     g.moveTo(aa.x, aa.y);
     g.lineTo(bb.x, bb.y);
-    g.lineTo(bb.x, bb.y + H*dpr);
-    g.lineTo(aa.x, aa.y + H*dpr);
+    g.lineTo(bb.x, bb.y - H*dpr);
+    g.lineTo(aa.x, aa.y - H*dpr);
     g.closePath(); g.fill();
 
     g.strokeStyle = 'rgba(255,255,255,0.16)';
@@ -945,10 +945,10 @@ function drawIsoArchitecture(g: CanvasRenderingContext2D, cam: Camera, lot: Lot,
     if (depth > 0) {
       g.fillStyle = 'rgba(0,0,0,0.16)';
       g.beginPath();
-      g.moveTo(aa.x, aa.y + H*dpr);
-      g.lineTo(bb.x, bb.y + H*dpr);
-      g.lineTo(bb.x, bb.y + (H+depth)*dpr);
-      g.lineTo(aa.x, aa.y + (H+depth)*dpr);
+      g.moveTo(aa.x, aa.y - H*dpr);
+      g.lineTo(bb.x, bb.y - H*dpr);
+      g.lineTo(bb.x, bb.y - (H+depth)*dpr);
+      g.lineTo(aa.x, aa.y - (H+depth)*dpr);
       g.closePath(); g.fill();
     }
   };
