@@ -1538,3 +1538,68 @@ body:has(.world.building) .notify-stack, body.driving .notify-stack { display: n
 @media (max-height: 560px) and (orientation: landscape) and (pointer: coarse) {
   .bp-mode { min-height: 34px; }
 }
+
+
+/* ---------------------------------------------------------------------------
+   Dealersim Build Mode — showroom-style construction console.
+   Desktop keeps the live dealership visible and moves the build catalog into
+   a wide bottom tray. Phones keep the existing bottom-sheet interaction.
+--------------------------------------------------------------------------- */
+@media (min-width: 901px) {
+  .world.building { background:#0a1117; }
+  .world.building .world-palette {
+    left:0; right:0; bottom:0; top:auto; width:auto; height:318px;
+    border-right:0; border-top:1px solid rgba(80,155,205,.30);
+    border-radius:18px 18px 0 0;
+    background:linear-gradient(180deg,rgba(9,17,24,.985),rgba(7,12,18,.995));
+    box-shadow:0 -22px 55px rgba(0,0,0,.50);
+    backdrop-filter:blur(14px);
+    z-index:20;
+  }
+  .world.building .world-buildstats { left:14px; right:14px; top:12px; }
+  .world.building .world-zoom { top:12px; right:14px; z-index:22; }
+  .world.building .bp-head { height:44px; padding:6px 14px; border-bottom:1px solid rgba(100,145,175,.16); }
+  .world.building .bp-title { font-size:15px; color:#f4f7f9; }
+  .world.building .bp-cash { color:#70e5a9; font-weight:800; }
+  .bp-context-head { display:flex; align-items:center; gap:14px; min-height:48px; padding:6px 14px; border-bottom:1px solid rgba(100,145,175,.15); }
+  .bp-context-title { min-width:190px; display:flex; flex-direction:column; gap:2px; }
+  .bp-context-title strong { color:#f5f7f9; font:800 14px var(--font-display); }
+  .bp-context-title span { color:#82919f; font-size:10px; }
+  .bp-contexts { flex:1; min-width:0; display:flex; gap:5px; overflow-x:auto; scrollbar-width:none; }
+  .bp-contexts::-webkit-scrollbar { display:none; }
+  .bp-context { flex:0 0 auto; display:inline-flex; align-items:center; gap:7px; min-height:34px; padding:0 13px; border:1px solid rgba(125,155,180,.18); border-radius:9px; background:rgba(21,31,40,.80); color:#9aa7b3; font:650 11px var(--font-ui); cursor:pointer; }
+  .bp-context:hover { color:#fff; border-color:rgba(60,190,255,.48); }
+  .bp-context.active { color:#fff; border-color:#2499dc; background:linear-gradient(180deg,rgba(24,126,190,.42),rgba(12,67,105,.44)); box-shadow:inset 0 0 0 1px rgba(85,205,255,.08); }
+  .bp-context-rooms { display:inline-flex; align-items:center; gap:5px; margin-top:3px; padding:4px 8px; border:1px solid rgba(125,155,180,.18); border-radius:7px; background:rgba(20,29,38,.7); color:#9aa7b3; font:650 10px var(--font-ui); cursor:pointer; }
+  .world.building .bp-tools { position:absolute; left:14px; top:91px; z-index:23; padding:0; border:0; }
+  .world.building .bp-tools .bp-tool { height:28px; background:rgba(13,22,30,.90); border-color:rgba(125,155,180,.18); }
+  .world.building .bp-search, .world.building .bp-filters { display:none; }
+  .world.building .bp-tabwrap { border-bottom:1px solid rgba(100,145,175,.14); }
+  .world.building .bp-tabs { flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; padding:6px 14px; gap:5px; }
+  .world.building .bp-tabs::-webkit-scrollbar { display:none; }
+  .world.building .bp-tab { min-height:32px; padding:0 13px; border-radius:8px; background:rgba(18,28,37,.88); border-color:rgba(125,155,180,.16); font-size:11px; }
+  .world.building .bp-tab.active { background:#147dbf; border-color:#42c5ff; color:#fff; }
+  .world.building .bp-body { padding:8px 14px 14px; overflow-x:auto; overflow-y:hidden; }
+  .world.building .bp-hint, .world.building .bp-sub { display:none; }
+  .world.building .bp-grid { display:flex; gap:8px; min-height:120px; overflow-x:auto; scrollbar-width:thin; padding-bottom:2px; }
+  .world.building .bp-item { flex:0 0 158px; width:158px; min-height:110px; grid-template-columns:1fr; grid-template-rows:48px auto auto; padding:8px; border-radius:10px; background:linear-gradient(180deg,rgba(28,39,50,.98),rgba(15,24,32,.98)); }
+  .world.building .bp-item:hover:not(:disabled) { transform:translateY(-1px); border-color:rgba(66,197,255,.62); }
+  .world.building .bp-item.active { border-color:#42c5ff; box-shadow:0 0 0 1px rgba(66,197,255,.10),0 8px 20px rgba(0,0,0,.22); }
+  .world.building .bp-swatch { grid-row:auto; width:100%; height:48px; border-radius:8px; background:linear-gradient(145deg,rgba(55,70,84,.86),rgba(16,24,32,.98)); font-size:27px; }
+  .world.building .bp-name { margin-top:5px; font-size:11px; }
+  .world.building .bp-cost { font-size:11px; }
+  .world.building .bp-eff, .world.building .bp-desc, .world.building .bp-lockline { display:none; }
+  .world.building .world-confirm { left:auto; right:18px; bottom:336px; transform:none; width:300px; max-width:300px; padding:14px; border-radius:14px; background:rgba(9,17,24,.96); border:1px solid rgba(66,197,255,.32); box-shadow:0 20px 50px rgba(0,0,0,.48); backdrop-filter:blur(12px); }
+  .world.building .world-confirm .wc-btns { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+  .world.building .world-confirm .wc-ok { grid-column:1/-1; min-height:42px; background:#19b96b; border-color:#2fd18b; }
+  .world.building .world-canvas { background:#0a1117; }
+}
+@media (max-width: 900px) {
+  .bp-context-head { display:flex; flex-direction:column; align-items:stretch; gap:5px; padding:5px 10px 6px; border-bottom:1px solid var(--line-soft); }
+  .bp-context-title { display:flex; flex-direction:row; align-items:baseline; gap:8px; }
+  .bp-context-title strong { font-size:12px; }
+  .bp-context-title span { font-size:9.5px; }
+  .bp-contexts { display:flex; gap:4px; overflow-x:auto; scrollbar-width:none; }
+  .bp-contexts::-webkit-scrollbar { display:none; }
+  .bp-context { min-height:31px; padding:0 10px; border-radius:8px; font-size:10px; }
+}
