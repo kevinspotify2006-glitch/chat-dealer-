@@ -961,10 +961,20 @@ export function renderScene(canvas: HTMLCanvasElement, s: Scene): void {
   g.fillStyle = '#1b2a1f';
   g.fillRect(0, 0, W, H);
   const z = cam.zoom * dpr;
-  const ox = W / 2 - cam.x * z;
-  const oy = H / 2 - cam.y * z;
-  g.setTransform(z, 0, 0, z, ox, oy);
-  const view = { x0: cam.x - cam.width / 2 / cam.zoom - 2, y0: cam.y - cam.height / 2 / cam.zoom - 2, x1: cam.x + cam.width / 2 / cam.zoom + 2, y1: cam.y + cam.height / 2 / cam.zoom + 2 };
+  const iso = cam.projection === 'iso';
+  if (iso) {
+    const ax = z * 0.84, ay = z * 0.42, bx = -z * 0.84, by = z * 0.42;
+    const ox = W / 2 - cam.x * ax - cam.y * bx;
+    const oy = H / 2 - cam.x * ay - cam.y * by;
+    g.setTransform(ax, ay, bx, by, ox, oy);
+  } else {
+    const ox = W / 2 - cam.x * z;
+    const oy = H / 2 - cam.y * z;
+    g.setTransform(z, 0, 0, z, ox, oy);
+  }
+  const ex = iso ? (cam.width + cam.height) / cam.zoom * 0.72 + 5 : cam.width / 2 / cam.zoom + 2;
+  const ey = iso ? (cam.width + cam.height) / cam.zoom * 0.72 + 5 : cam.height / 2 / cam.zoom + 2;
+  const view = { x0: cam.x - ex, y0: cam.y - ey, x1: cam.x + ex, y1: cam.y + ey };
 
   // Surroundings: neighbouring land, the pavement and the road.
   g.fillStyle = '#243326';
