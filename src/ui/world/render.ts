@@ -1048,7 +1048,7 @@ export function renderScene(canvas: HTMLCanvasElement, s: Scene): void {
   g.setTransform(1,0,0,1,0,0);
   g.fillStyle='#1b2a1f'; g.fillRect(0,0,W,H);
   const z=cam.zoom*dpr, iso=cam.projection==='iso';
-  if(iso){const ax=z*.84,ay=z*.42,bx=-z*.84,by=z*.42;g.setTransform(ax,ay,bx,by,W/2-cam.x*ax-cam.y*bx,H/2-cam.x*ay-cam.y*by);}
+  if(iso){const ax=z*.866,ay=z*.5,bx=-z*.866,by=z*.5;g.setTransform(ax,ay,bx,by,W/2-cam.x*ax-cam.y*bx,H/2-cam.x*ay-cam.y*by);}
   else g.setTransform(z,0,0,z,W/2-cam.x*z,H/2-cam.y*z);
   const ex=iso?(cam.width+cam.height)/cam.zoom*.72+5:cam.width/2/cam.zoom+2;
   const ey=iso?(cam.width+cam.height)/cam.zoom*.72+5:cam.height/2/cam.zoom+2;
