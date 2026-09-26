@@ -1566,10 +1566,22 @@ body:has(.world.building) .notify-stack, body.driving .notify-stack { display: n
   .world.building .bp-head .btn { min-height:30px; }
 
   /* Tools live in the header instead of floating over the context row. */
+  .world.building .build-palette { position:relative; }
   .world.building .bp-tools {
-    position:absolute; right:118px; top:8px; z-index:24;
-    display:flex; gap:4px; padding:0; border:0; background:transparent;
+    position:static;
+    height:30px; min-height:30px; box-sizing:border-box;
+    display:flex; align-items:center; justify-content:flex-end;
+    gap:5px; padding:3px 14px;
+    border:0; border-bottom:1px solid rgba(100,145,175,.12);
+    background:rgba(7,13,18,.72);
   }
+  .world.building .bp-tools .bp-tool {
+    height:24px; min-height:24px; padding:0 8px;
+    background:rgba(19,29,38,.96); border-color:rgba(125,155,180,.20);
+  }
+  .world.building .bp-tools .bp-tool span { font-size:9px; }
+  .world.building .bp-tools .bp-tool:nth-child(-n+2) { display:none; }
+
   .world.building .bp-tools .bp-tool {
     height:28px; min-height:28px; padding:0 8px;
     background:rgba(13,22,30,.92); border-color:rgba(125,155,180,.18);
