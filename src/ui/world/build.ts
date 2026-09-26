@@ -19,8 +19,8 @@ import { QUICK_ROOMS, TEMPLATES, applyTemplate, buildQuickRoom, currentStyle, lo
 import type { StyleTarget } from '../../sim/lot';
 import { ARCHETYPE_BY_ID, CITY_BY_ID, ROLE_BY_ID, STRATEGIES } from '../../data/game';
 import { BRAND_BY_ID } from '../../data/vehicles';
-import { BUILD_TABS, BUILD_TAB_BY_ID, BUILD_CONTEXTS, BUILD_CONTEXT_BY_ID, LEGACY_TAB, PANEL_TABS, tabsOf } from '../../data/buildcats';
-import type { BuildContextId, BuildTabId } from '../../data/buildcats';
+import { BUILD_TABS, BUILD_TAB_BY_ID, LEGACY_TAB, PANEL_TABS, tabsOf } from '../../data/buildcats';
+import type { BuildTabId } from '../../data/buildcats';
 import { capacityOf, occupying, staffAt, vehicleName } from '../../sim/state';
 import { helpButton, richTipped } from '../kit';
 import { effectLines, objectInfo, vehicleInfo } from './info';
@@ -47,8 +47,6 @@ export interface BuildHost {
   setTool: (t: Tool) => void;
   category: () => string;
   setCategory: (c: string) => void;
-  context: () => BuildContextId;
-  setContext: (c: BuildContextId) => void;
   search: () => string;
   setSearch: (q: string) => void;
   filter: () => Filter;
@@ -320,27 +318,8 @@ export function buildPalette(host: BuildHost): HTMLElement {
     h('button', { class: 'bp-sclose', aria: { label: 'Close search' }, on: { click: closeSearch } }, icon('close', 16))));
   paintFilters();
   root.appendChild(filters);
-  const ctxId = host.context();
-  const ctxDef = BUILD_CONTEXT_BY_ID[ctxId] ?? BUILD_CONTEXTS[0];
-  const contextBar = h('div', { class: 'bp-contexts scroll-x', role: 'tablist', aria: { label: 'Build area' } });
-  for (const area of BUILD_CONTEXTS) {
-    contextBar.appendChild(h('button', {
-      class: 'bp-context' + (area.id === ctxId ? ' active' : ''),
-      title: area.subtitle,
-      aria: { label: area.name + ': ' + area.subtitle, pressed: String(area.id === ctxId) },
-      on: { click: () => { haptic(6); host.setContext(area.id); } },
-    }, icon(area.icon, 17), h('span', { text: area.name })));
-  }
-  root.appendChild(h('div', { class: 'bp-context-head' },
-    h('div', { class: 'bp-context-title' },
-      h('strong', { text: ctxDef.name }),
-      h('span', { text: ctxDef.subtitle }),
-      h('button', { class: 'bp-context-rooms', title: 'Rooms & areas', on: { click: () => { haptic(6); host.setCategory('zones'); } } }, icon('garage', 14), h('span', { text: 'Rooms' }))),
-    contextBar));
   const current = (LEGACY_TAB[cat] ?? cat) as BuildTabId;
-  const visibleTabs = new Set<BuildTabId>(ctxDef.tabs);
-  visibleTabs.add('structure');
-  for (const t of BUILD_TABS.filter(tab => visibleTabs.has(tab.id))) {
+  for (const t of BUILD_TABS) {
     const count = t.test ? OBJECTS.filter((d) => !d.hidden && t.test!(d)).length : 0;
     tabs.appendChild(h('button', {
       class: `bp-tab${t.id === current ? ' active' : ''}`,
