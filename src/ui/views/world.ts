@@ -30,7 +30,6 @@ import type { CarGhost, Ghost, LineGhost, PaintPreview, RectPreview, Selection, 
 import { entityMenu, pruneNotes } from '../world/menus';
 import type { WorldActions } from '../world/menus';
 import { buildPalette, buildStats, setTracker } from '../world/build';
-import { contextForZone, contextForObject } from '../../data/buildcats';
 import type { Filter, SheetSize, Tool } from '../world/build';
 import { openDecisions } from './growth';
 import { openTestDrive } from '../modals/testdrive';
@@ -67,11 +66,10 @@ interface Ui {
   cams: Record<string, { x: number; y: number; zoom: number }>;
   /** Phone build sheet height. */
   sheet: SheetSize;
-  context: string;
 }
 
 // Kept between visits so the dealership looks the way you left it.
-const ui: Ui = { build: false, tool: { kind: 'select' }, category: 'zones', search: '', filter: 'all', styleTarget: 'all', grid: true, snap: true, panel: null, selected: null, moveCar: null, flow: false, cams: {}, sheet: 'half', context: 'showroom' };
+const ui: Ui = { build: false, tool: { kind: 'select' }, category: 'zones', search: '', filter: 'all', styleTarget: 'all', grid: true, snap: true, panel: null, selected: null, moveCar: null, flow: false, cams: {}, sheet: 'half' };
 const crowd = new Crowd();
 
 const PANELS: Record<Exclude<PanelId, 'time'>, { title: string; icon: string }> = {
@@ -1035,8 +1033,8 @@ export function worldView(ctx: Ctx): View {
       const v = vehicleAt(w);
       if (v) { select({ kind: 'vehicle', id: v.id }, w); return; }
       const obj = objectAt(w, false) ?? objectAt(w);
-      if (obj) { const picked = loc.lot.objects.find((x) => x.id === obj); const context = picked ? contextForObject(picked, loc.lot) : contextForZone(zoneAt(loc.lot, Math.floor(w.x), Math.floor(w.y))); if (context) ui.context = context; select({ kind: 'object', id: obj }, w); }
-      else { const context = contextForZone(zoneAt(loc.lot, Math.floor(w.x), Math.floor(w.y))); if (context) { ui.context = context; ui.category = context === 'showroom' ? 'showroom' : context === 'workshop' ? 'service' : context === 'office' ? 'staff' : context === 'storage' ? 'storage' : context === 'outdoor' ? 'parking' : 'customers'; ui.search = ''; paintBuild(); } ui.selected = null; closePop(); }
+      if (obj) select({ kind: 'object', id: obj }, w);
+      else { ui.selected = null; closePop(); }
       return;
     }
     const agent = crowd.hit(w.x, w.y);
@@ -1212,7 +1210,6 @@ export function worldView(ctx: Ctx): View {
 
   // ---------------------------------------------------------------- build --
   const enterBuild = (category?: string, refit = true): void => {
-    cam.setProjection('iso');
     if (!ui.build) {
       ui.build = true;
       releaseBuild = pushBackHandler(() => {
@@ -1222,7 +1219,6 @@ export function worldView(ctx: Ctx): View {
       });
     }
     if (category) ui.category = category;
-    else if (ui.category === 'zones' || !ui.category) ui.category = ui.context === 'showroom' ? 'showroom' : ui.context === 'workshop' ? 'service' : ui.context === 'office' ? 'staff' : ui.context === 'storage' ? 'storage' : ui.context === 'outdoor' ? 'parking' : 'customers';
     setGameMode('build');
     closePanel();
     closePop();
@@ -1239,7 +1235,6 @@ export function worldView(ctx: Ctx): View {
   };
   const exitBuild = (): void => {
     ui.build = false;
-    cam.setProjection('topdown');
     ui.tool = { kind: 'select' };
     ui.selected = null;
     root.classList.remove('building');
@@ -1331,8 +1326,6 @@ export function worldView(ctx: Ctx): View {
       },
       category: () => ui.category,
       setCategory: (c) => { ui.category = c; collapsePalette(false); paintBuild(); },
-      context: () => ui.context as import('../../data/buildcats').BuildContextId,
-      setContext: (c) => { ui.context = c; ui.category = c === 'showroom' ? 'showroom' : c === 'workshop' ? 'service' : c === 'office' ? 'staff' : c === 'storage' ? 'storage' : c === 'outdoor' ? 'parking' : 'customers'; ui.search = ''; paintBuild(); },
       search: () => ui.search,
       setSearch: (q) => { ui.search = q; },
       filter: () => ui.filter,

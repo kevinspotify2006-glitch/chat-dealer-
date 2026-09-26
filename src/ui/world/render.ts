@@ -958,15 +958,13 @@ export function renderScene(canvas: HTMLCanvasElement, s: Scene): void {
   const W = canvas.width;
   const H = canvas.height;
   g.setTransform(1, 0, 0, 1, 0, 0);
-  g.fillStyle = s.build ? '#0b1117' : '#1b2a1f';
+  g.fillStyle = '#1b2a1f';
   g.fillRect(0, 0, W, H);
   const z = cam.zoom * dpr;
-  const iso = cam.projection === 'iso';
-  if (iso) { const ax=z*.84, ay=z*.42, bx=-z*.84, by=z*.42; g.setTransform(ax, ay, bx, by, W/2-cam.x*ax-cam.y*bx, H/2-cam.x*ay-cam.y*by); }
-  else g.setTransform(z, 0, 0, z, W/2-cam.x*z, H/2-cam.y*z);
-  const ex = iso ? (cam.width + cam.height) / cam.zoom * .75 + 5 : cam.width / 2 / cam.zoom + 2;
-  const ey = iso ? (cam.width + cam.height) / cam.zoom * .75 + 5 : cam.height / 2 / cam.zoom + 2;
-  const view = { x0: cam.x-ex, y0: cam.y-ey, x1: cam.x+ex, y1: cam.y+ey };
+  const ox = W / 2 - cam.x * z;
+  const oy = H / 2 - cam.y * z;
+  g.setTransform(z, 0, 0, z, ox, oy);
+  const view = { x0: cam.x - cam.width / 2 / cam.zoom - 2, y0: cam.y - cam.height / 2 / cam.zoom - 2, x1: cam.x + cam.width / 2 / cam.zoom + 2, y1: cam.y + cam.height / 2 / cam.zoom + 2 };
 
   // Surroundings: neighbouring land, the pavement and the road.
   g.fillStyle = '#243326';
@@ -1034,7 +1032,7 @@ export function renderScene(canvas: HTMLCanvasElement, s: Scene): void {
 
   // Build mode: zone tint and grid.
   if (s.build) {
-    g.globalAlpha = iso ? 0.10 : 0.18;
+    g.globalAlpha = 0.18;
     for (let y = Math.max(0, Math.floor(view.y0)); y < Math.min(lot.h, view.y1); y += 1) {
       for (let x = Math.max(0, Math.floor(view.x0)); x < Math.min(lot.w, view.x1); x += 1) {
         const code = zoneAt(lot, x, y);
