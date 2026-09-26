@@ -953,6 +953,12 @@ function drawIsoArchitecture(g: CanvasRenderingContext2D, cam: Camera, lot: Lot,
     }
   };
 
+  // A raised curb makes even an empty starter lot read as a physical site.
+  const curbH = Math.max(8, Math.min(14, cam.zoom * 0.34));
+  for (let y = 0; y < lot.h; y += 1) facade({x:lot.w,y}, {x:lot.w,y:y+1}, '#4b5259', 1);
+  for (let x = 0; x < lot.w; x += 1) facade({x,y:lot.h}, {x:x+1,y:lot.h}, '#3d444b', 1);
+  void curbH;
+
   // Only the two camera-facing edges receive a facade. This makes rooms read
   // as solid buildings instead of a stretched diamond.
   for (let y = 0; y < lot.h; y += 1) {
