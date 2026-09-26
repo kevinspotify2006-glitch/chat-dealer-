@@ -10,4 +10,301 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: echo "bootstrap workflow is valid"
+      - name: Import and rebuild Dealersim
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf source
+          git clone --depth 1 https://github.com/kevinspotify2006-glitch/Dealersim.git source
+          rsync -a --exclude='.git' --exclude='.github/workflows/**' source/ ./
+
+          cat > src/ui/world/camera.ts <<'EOF'
+/**
+ * Camera over the dealership tile grid.
+ *
+ * The normal game uses a flat top-down projection. Build Mode can switch to an
+ * oblique/isometric presentation so the dealership reads more like a modern
+ * 3D management game while keeping the existing tile coordinates, placement
+ * and simulation completely intact.
+ */
+export type Projection = 'topdown' | 'iso';
+
+export class Camera {
+  x = 15;
+  y = 10;
+  zoom = 24;
+  width = 800;
+  height = 600;
+  min = 7;
+  max = 90;
+  bounds = { x0: -6, y0: -6, x1: 36, y1: 30 };
+  projection: Projection = 'topdown';
+
+  setProjection(mode: Projection): void {
+    this.projection = mode;
+    this.clamp();
+  }
+
+  private basis(): { ax: number; ay: number; bx: number; by: number } {
+    const z = this.zoom;
+    return { ax: z * 0.84, ay: z * 0.42, bx: -z * 0.84, by: z * 0.42 };
+  }
+
+  toScreen(wx: number, wy: number): { x: number; y: number } {
+    if (this.projection === 'topdown') {
+      return { x: (wx - this.x) * this.zoom + this.width / 2, y: (wy - this.y) * this.zoom + this.height / 2 };
+    }
+    const b = this.basis();
+    const dx = wx - this.x;
+    const dy = wy - this.y;
+    return {
+      x: dx * b.ax + dy * b.bx + this.width / 2,
+      y: dx * b.ay + dy * b.by + this.height / 2,
+    };
+  }
+
+  toWorld(sx: number, sy: number): { x: number; y: number } {
+    if (this.projection === 'topdown') {
+      return { x: (sx - this.width / 2) / this.zoom + this.x, y: (sy - this.height / 2) / this.zoom + this.y };
+    }
+    const b = this.basis();
+    const sxn = sx - this.width / 2;
+    const syn = sy - this.height / 2;
+    const det = b.ax * b.by - b.bx * b.ay;
+    const dx = (sxn * b.by - b.bx * syn) / det;
+    const dy = (b.ax * syn - sxn * b.ay) / det;
+    return { x: dx + this.x, y: dy + this.y };
+  }
+
+  panBy(dxPx: number, dyPx: number): void {
+    if (this.projection === 'topdown') {
+      this.x -= dxPx / this.zoom;
+      this.y -= dyPx / this.zoom;
+    } else {
+      const b = this.basis();
+      const det = b.ax * b.by - b.bx * b.ay;
+      const dx = (dxPx * b.by - b.bx * dyPx) / det;
+      const dy = (b.ax * dyPx - dxPx * b.ay) / det;
+      this.x -= dx;
+      this.y -= dy;
+    }
+    this.clamp();
+  }
+
+  zoomAt(factor: number, sx: number, sy: number): void {
+    const before = this.toWorld(sx, sy);
+    this.zoom = Math.max(this.min, Math.min(this.max, this.zoom * factor));
+    const after = this.toWorld(sx, sy);
+    this.x += before.x - after.x;
+    this.y += before.y - after.y;
+    this.clamp();
+  }
+
+  fit(x0: number, y0: number, x1: number, y1: number, pad = { top: 60, bottom: 90, left: 20, right: 20 }): void {
+    const w = Math.max(1, this.width - pad.left - pad.right);
+    const h = Math.max(1, this.height - pad.top - pad.bottom);
+    const worldW = Math.max(1, x1 - x0);
+    const worldH = Math.max(1, y1 - y0);
+    if (this.projection === 'topdown') {
+      this.zoom = Math.max(this.min, Math.min(this.max, Math.min(w / worldW, h / worldH)));
+    } else {
+      const projectedW = (worldW + worldH) * 0.84;
+      const projectedH = (worldW + worldH) * 0.42;
+      this.zoom = Math.max(this.min, Math.min(this.max, Math.min(w / projectedW, h / projectedH)));
+    }
+    const cx = (x0 + x1) / 2;
+    const cy = (y0 + y1) / 2;
+    this.x = cx - (pad.left - pad.right) / 2 / this.zoom;
+    this.y = cy - (pad.top - pad.bottom) / 2 / this.zoom;
+    this.clamp();
+  }
+
+  resize(width: number, height: number): void {
+    this.width = Math.max(1, width);
+    this.height = Math.max(1, height);
+    this.clamp();
+  }
+
+  setBounds(x0: number, y0: number, x1: number, y1: number): void {
+    this.bounds = { x0, y0, x1, y1 };
+    this.clamp();
+  }
+
+  clamp(): void {
+    const b = this.bounds;
+    const halfW = this.width / 2 / this.zoom;
+    const halfH = this.height / 2 / this.zoom;
+    const extra = this.projection === 'iso' ? 1.35 : 0.5;
+    this.x = Math.max(b.x0 - halfW * extra, Math.min(b.x1 + halfW * extra, this.x));
+    this.y = Math.max(b.y0 - halfH * extra, Math.min(b.y1 + halfH * extra, this.y));
+  }
+}
+EOF
+
+          cat >> src/data/buildcats.ts <<'EOF'
+
+/** Build Mode contexts keep the palette focused on the room the player is working in. */
+export type BuildContextId = 'showroom' | 'workshop' | 'office' | 'storage' | 'outdoor' | 'customer';
+export interface BuildContext { id: BuildContextId; name: string; icon: string; subtitle: string; tabs: BuildTabId[]; }
+export const BUILD_CONTEXTS: BuildContext[] = [
+  { id: 'showroom', name: 'Showroom', icon: 'car', subtitle: 'Alles voor klanten, verkoop en presentatie', tabs: ['showroom', 'vehicles', 'customers', 'finance', 'technology', 'decoration', 'storage'] },
+  { id: 'workshop', name: 'Werkplaats', icon: 'wrench', subtitle: 'Reparatie, diagnose en service', tabs: ['service', 'vehicles', 'technology', 'ev', 'storage', 'security', 'decoration'] },
+  { id: 'office', name: 'Kantoor', icon: 'people', subtitle: 'Team, administratie en management', tabs: ['staff', 'finance', 'marketing', 'technology', 'storage', 'decoration'] },
+  { id: 'storage', name: 'Opslag', icon: 'box', subtitle: 'Voorraad, onderdelen en logistiek', tabs: ['storage', 'vehicles', 'security', 'technology', 'decoration'] },
+  { id: 'outdoor', name: 'Buitenterrein', icon: 'tree', subtitle: 'Parkeren, wegen, groen en laadpunten', tabs: ['parking', 'exterior', 'vehicles', 'ev', 'security', 'decoration'] },
+  { id: 'customer', name: 'Klantenruimte', icon: 'customer', subtitle: 'Comfort, ontvangst en klantbeleving', tabs: ['customers', 'showroom', 'finance', 'technology', 'decoration', 'storage'] },
+];
+export const BUILD_CONTEXT_BY_ID = Object.fromEntries(BUILD_CONTEXTS.map((c) => [c.id, c])) as Record<BuildContextId, BuildContext>;
+export function contextForZone(code: ZoneCode): BuildContextId | null {
+  switch (code) {
+    case 's': case 'r': case 'e': case 'f': return 'showroom';
+    case 'w': case 'd': case 'v': case 'p': case 'q': return 'workshop';
+    case 'o': case 'm': case 'k': case 'n': case 'u': return 'office';
+    case 't': return 'storage';
+    case 'a': case 'x': case 'j': case 'g': case '.': return 'outdoor';
+    case 'l': case 'b': return 'customer';
+    default: return null;
+  }
+}
+export function contextForObject(o: LotObject, lot: Lot): BuildContextId | null {
+  const def = OBJECTS.find((d) => d.id === o.defId);
+  if (!def) return null;
+  const code = zoneAtLot(lot, o.x, o.y);
+  return contextForZone(code) ?? (def.category === 'service' ? 'workshop' : def.category === 'office' || def.category === 'staff' ? 'office' : def.category === 'outdoor' || def.category === 'parking' ? 'outdoor' : 'showroom');
+}
+function zoneAtLot(lot: Lot, x: number, y: number): ZoneCode {
+  if (x < 0 || y < 0 || x >= lot.w || y >= lot.h) return '.';
+  return lot.zones[y * lot.w + x] as ZoneCode;
+}
+EOF
+
+          python3 - <<'PY'
+from pathlib import Path
+def R(p): return Path(p).read_text()
+def W(p,s): Path(p).write_text(s)
+
+p='src/data/buildcats.ts'
+s=R(p).replace("import type { ObjDef } from './lot';\nimport { ZONE_BY_CODE } from './lot';","import type { ObjDef } from './lot';\nimport { OBJECTS, ZONE_BY_CODE } from './lot';\nimport type { Lot, LotObject, ZoneCode } from '../sim/types';")
+W(p,s)
+
+p='src/ui/world/build.ts'
+s=R(p)
+s=s.replace("import { BUILD_TABS, BUILD_TAB_BY_ID, LEGACY_TAB, PANEL_TABS, tabsOf } from '../../data/buildcats';","import { BUILD_TABS, BUILD_TAB_BY_ID, BUILD_CONTEXTS, BUILD_CONTEXT_BY_ID, LEGACY_TAB, PANEL_TABS, tabsOf } from '../../data/buildcats';")
+s=s.replace("import type { BuildTabId } from '../../data/buildcats';","import type { BuildContextId, BuildTabId } from '../../data/buildcats';")
+s=s.replace("  category: () => string;\n  setCategory: (c: string) => void;","  category: () => string;\n  setCategory: (c: string) => void;\n  context: () => BuildContextId;\n  setContext: (c: BuildContextId) => void;")
+anchor="  const current = (LEGACY_TAB[cat] ?? cat) as BuildTabId;\n  for (const t of BUILD_TABS) {\n    const count = t.test ? OBJECTS.filter((d) => !d.hidden && t.test!(d)).length : 0;"
+replace="  const current = (LEGACY_TAB[cat] ?? cat) as BuildTabId;\n  const visibleTabs = new Set<BuildTabId>(ctxDef.tabs);\n  visibleTabs.add('structure');\n  for (const t of BUILD_TABS.filter((tab) => visibleTabs.has(tab.id))) {\n    const count = t.test ? OBJECTS.filter((d) => !d.hidden && t.test!(d)).length : 0;"
+s=s.replace(anchor,replace)
+needle="  root.appendChild(swipeSheet(h('div', { class: 'bp-modes', role: 'group', aria: { label: 'Build mode' } },"
+pos=s.find(needle)
+if pos<0: raise SystemExit('build mode anchor missing')
+end=s.find("  const current =",pos)
+block=s[pos:end]
+context="""  const ctxId = host.context();
+  const ctxDef = BUILD_CONTEXT_BY_ID[ctxId] ?? BUILD_CONTEXTS[0];
+  const contextBar = h('div', { class: 'bp-contexts scroll-x', role: 'tablist', aria: { label: 'Build context' } });
+  for (const c of BUILD_CONTEXTS) {
+    contextBar.appendChild(h('button', {
+      class: 'bp-context' + (c.id === ctxId ? ' active' : ''),
+      data: { context: c.id },
+      title: c.subtitle,
+      aria: { label: c.name + ': ' + c.subtitle, pressed: String(c.id === ctxId) },
+      on: { click: () => { haptic(6); host.setContext(c.id); } },
+    }, icon(c.icon, 17), h('span', { text: c.name })));
+  }
+  root.appendChild(h('div', { class: 'bp-context-head' },
+    h('div', { class: 'bp-context-title' },
+      h('strong', { text: ctxDef.name }),
+      h('span', { text: ctxDef.subtitle }),
+      h('button', { class: 'bp-context-rooms', title: 'Rooms & areas', aria: { label: 'Rooms and areas' }, on: { click: () => { haptic(6); host.setCategory('zones'); } } }, icon('garage', 14), h('span', { text: 'Rooms' }))),
+    contextBar));
+"""
+s=s[:end]+block+context+s[end:]
+W(p,s)
+
+p='src/ui/views/world.ts'
+s=R(p)
+s=s.replace("import { buildPalette, buildStats, setTracker } from '../world/build';","import { buildPalette, buildStats, setTracker } from '../world/build';\nimport { contextForZone, contextForObject } from '../../data/buildcats';")
+s=s.replace("  sheet: SheetSize;\n}","  sheet: SheetSize;\n  context: string;\n}")
+s=s.replace("sheet: 'half' };","sheet: 'half', context: 'showroom' };")
+s=s.replace("  const enterBuild = (category?: string, refit = true): void => {\n    if (!ui.build) {","  const enterBuild = (category?: string, refit = true): void => {\n    cam.setProjection('iso');\n    if (!ui.build) {")
+s=s.replace("    if (category) ui.category = category;\n    setGameMode('build');","    if (category) ui.category = category;\n    else if (ui.category === 'zones' || !ui.category) ui.category = ui.context === 'showroom' ? 'showroom' : ui.context === 'workshop' ? 'service' : ui.context === 'office' ? 'staff' : ui.context === 'storage' ? 'storage' : ui.context === 'outdoor' ? 'parking' : 'customers';\n    setGameMode('build');")
+s=s.replace("  const exitBuild = (): void => {\n    ui.build = false;","  const exitBuild = (): void => {\n    ui.build = false;\n    cam.setProjection('topdown');")
+s=s.replace("      category: () => ui.category,\n      setCategory: (c) => { ui.category = c; collapsePalette(false); paintBuild(); },\n      search:","      category: () => ui.category,\n      setCategory: (c) => { ui.category = c; collapsePalette(false); paintBuild(); },\n      context: () => ui.context as import('../../data/buildcats').BuildContextId,\n      setContext: (c) => { ui.context = c; ui.category = c === 'showroom' ? 'showroom' : c === 'workshop' ? 'service' : c === 'office' ? 'staff' : c === 'storage' ? 'storage' : c === 'outdoor' ? 'parking' : 'customers'; ui.search = ''; paintBuild(); },\n      search:")
+old="      const obj = objectAt(w, false) ?? objectAt(w);\n      if (obj) select({ kind: 'object', id: obj }, w);\n      else { ui.selected = null; closePop(); }\n      return;"
+new="      const obj = objectAt(w, false) ?? objectAt(w);\n      if (obj) { const picked = loc.lot.objects.find((x) => x.id === obj); const context = picked ? contextForObject(picked, loc.lot) : contextForZone(zoneAt(loc.lot, Math.max(0, Math.floor(w.x)), Math.max(0, Math.floor(w.y)))); if (context) ui.context = context; select({ kind: 'object', id: obj }, w); }\n      else { const tx = Math.floor(w.x), ty = Math.floor(w.y); if (tx >= 0 && ty >= 0 && tx < loc.lot.w && ty < loc.lot.h) { const context = contextForZone(zoneAt(loc.lot, tx, ty)); if (context) { ui.context = context; ui.category = context === 'showroom' ? 'showroom' : context === 'workshop' ? 'service' : context === 'office' ? 'staff' : context === 'storage' ? 'storage' : context === 'outdoor' ? 'parking' : 'customers'; ui.search = ''; paintBuild(); } } ui.selected = null; closePop(); }\n      return;"
+s=s.replace(old,new)
+W(p,s)
+
+p='src/ui/world/render.ts'
+s=R(p)
+old="  g.setTransform(1, 0, 0, 1, 0, 0);\n  g.fillStyle = '#1b2a1f';\n  g.fillRect(0, 0, W, H);\n  const z = cam.zoom * dpr;\n  const ox = W / 2 - cam.x * z;\n  const oy = H / 2 - cam.y * z;\n  g.setTransform(z, 0, 0, z, ox, oy);\n  const view = { x0: cam.x - cam.width / 2 / cam.zoom - 2, y0: cam.y - cam.height / 2 / cam.zoom - 2, x1: cam.x + cam.width / 2 / cam.zoom + 2, y1: cam.y + cam.height / 2 / cam.zoom + 2 };"
+new="  g.setTransform(1, 0, 0, 1, 0, 0);\n  g.fillStyle = s.build ? '#0b1117' : '#1b2a1f';\n  g.fillRect(0, 0, W, H);\n  const z = cam.zoom * dpr;\n  const iso = cam.projection === 'iso';\n  if (iso) { const ax = z * 0.84, ay = z * 0.42, bx = -z * 0.84, by = z * 0.42; const ox = W / 2 - cam.x * ax - cam.y * bx; const oy = H / 2 - cam.x * ay - cam.y * by; g.setTransform(ax, ay, bx, by, ox, oy); }\n  else { const ox = W / 2 - cam.x * z; const oy = H / 2 - cam.y * z; g.setTransform(z, 0, 0, z, ox, oy); }\n  const ex = iso ? (cam.width + cam.height) / cam.zoom * 0.75 + 5 : cam.width / 2 / cam.zoom + 2;\n  const ey = iso ? (cam.width + cam.height) / cam.zoom * 0.75 + 5 : cam.height / 2 / cam.zoom + 2;\n  const view = { x0: cam.x - ex, y0: cam.y - ey, x1: cam.x + ex, y1: cam.y + ey };"
+s=s.replace(old,new).replace("    g.globalAlpha = 0.18;","    g.globalAlpha = iso ? 0.10 : 0.18;",1)
+W(p,s)
+PY
+
+          cat >> src/styles/game.css <<'EOF'
+@media (min-width: 901px) {
+  .world.building { --palette-w: 0px; background: #0b1117; }
+  .world.building .world-palette { top:auto; left:0; right:0; bottom:0; width:auto; height:314px; border-right:0; border-top:1px solid rgba(96,153,192,0.28); border-radius:18px 18px 0 0; background:linear-gradient(180deg,rgba(10,17,24,.985),rgba(8,13,19,.99)); box-shadow:0 -18px 50px rgba(0,0,0,.45); backdrop-filter:blur(14px); }
+  .world.building .world-buildstats { left:14px; right:14px; top:12px; }
+  .world.building .world-zoom { top:12px; right:14px; }
+  .world.building .bp-head { height:46px; padding:7px 14px; border-bottom:1px solid rgba(96,153,192,.18); }
+  .world.building .bp-title { color:#f2f6fa; font-size:15px; }
+  .world.building .bp-cash { color:#7de6b5; font-weight:750; }
+  .bp-context-head { display:flex; align-items:center; gap:14px; min-height:48px; padding:6px 14px; border-bottom:1px solid rgba(96,153,192,.16); }
+  .bp-context-title { flex:0 0 auto; min-width:150px; display:flex; flex-direction:column; gap:2px; }
+  .bp-context-title strong { color:#f3f7fa; font:800 14px var(--font-display); }
+  .bp-context-title span { color:#7e8d9b; font-size:10px; }
+  .bp-contexts { display:flex; gap:5px; min-width:0; flex:1 1 auto; overflow-x:auto; scrollbar-width:none; }
+  .bp-contexts::-webkit-scrollbar { display:none; }
+  .bp-context { flex:0 0 auto; display:inline-flex; align-items:center; gap:7px; min-height:34px; padding:0 13px; border:1px solid rgba(120,150,175,.18); border-radius:9px; background:rgba(22,31,40,.72); color:#91a0ad; font:650 11px var(--font-ui); cursor:pointer; }
+  .bp-context:hover { border-color:rgba(60,199,255,.5); color:#dcecf5; }
+  .bp-context.active { border-color:#2199db; background:linear-gradient(180deg,rgba(28,130,190,.28),rgba(15,71,111,.32)); color:#fff; }
+  .world.building .bp-tools { position:absolute; left:14px; top:94px; z-index:3; padding:0; border:0; }
+  .world.building .bp-tools .bp-tool { height:28px; background:rgba(14,22,29,.86); border-color:rgba(120,150,175,.18); }
+  .world.building .bp-search, .world.building .bp-filters { display:none; }
+  .world.building .bp-tabs { flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; padding:6px 14px; gap:5px; }
+  .world.building .bp-tabs::-webkit-scrollbar { display:none; }
+  .world.building .bp-tab { min-height:32px; padding:0 13px; border-radius:8px; background:rgba(18,28,37,.86); border-color:rgba(120,150,175,.16); font-size:11px; }
+  .world.building .bp-tab.active { background:#1178bd; border-color:#3cc7ff; color:#fff; }
+  .world.building .bp-body { padding:8px 14px 14px; overflow-x:auto; overflow-y:hidden; }
+  .world.building .bp-hint, .world.building .bp-sub { display:none; }
+  .world.building .bp-grid { display:flex; gap:8px; min-height:118px; overflow-x:auto; scrollbar-width:thin; padding-bottom:3px; }
+  .world.building .bp-item { flex:0 0 158px; width:158px; min-height:108px; grid-template-columns:1fr; grid-template-rows:48px auto auto; padding:8px; border-radius:10px; background:linear-gradient(180deg,rgba(25,36,47,.98),rgba(15,24,32,.98)); }
+  .world.building .bp-item:hover:not(:disabled) { transform:translateY(-1px); border-color:rgba(60,199,255,.62); }
+  .world.building .bp-swatch { grid-row:auto; width:100%; height:48px; border-radius:8px; background:linear-gradient(145deg,rgba(53,68,82,.8),rgba(17,25,33,.95)); font-size:27px; }
+  .world.building .bp-name { margin-top:5px; font-size:11px; }
+  .world.building .bp-cost { font-size:11px; }
+  .world.building .bp-eff, .world.building .bp-desc, .world.building .bp-lockline { display:none; }
+  .world.building .world-confirm { left:auto; right:18px; bottom:332px; transform:none; width:300px; max-width:300px; display:none; flex-direction:column; align-items:stretch; padding:14px; border-radius:14px; background:rgba(10,17,24,.96); border:1px solid rgba(60,199,255,.32); box-shadow:0 20px 50px rgba(0,0,0,.45); backdrop-filter:blur(12px); }
+  .world.building .world-confirm.open { display:flex; }
+  .world.building .world-confirm .wc-label { font-size:15px; color:#f3f7fa; }
+  .world.building .world-confirm .wc-btns { display:grid; grid-template-columns:1fr 1fr; gap:7px; width:100%; margin-top:10px; }
+  .world.building .world-confirm .wc-ok { grid-column:1/-1; min-height:42px; background:#19b96b; border-color:#2fd18b; }
+  .world.building .world-canvas { background:radial-gradient(circle at 50% 35%,rgba(44,91,122,.14),transparent 42%),#0b1117; }
+}
+@media (max-width: 900px) {
+  .bp-context-head { display:flex; flex-direction:column; align-items:stretch; gap:5px; padding:5px 10px 6px; border-bottom:1px solid var(--line-soft); }
+  .bp-context-title { display:flex; flex-direction:row; align-items:baseline; gap:8px; }
+  .bp-context-title strong { font-size:12px; }
+  .bp-context-title span { font-size:9.5px; }
+  .bp-contexts { display:flex; gap:4px; overflow-x:auto; scrollbar-width:none; }
+  .bp-contexts::-webkit-scrollbar { display:none; }
+  .bp-context { min-height:31px; padding:0 10px; border-radius:8px; font-size:10px; }
+}
+.bp-context-rooms { display:inline-flex; align-items:center; gap:5px; margin-top:3px; padding:4px 8px; border:1px solid rgba(120,150,175,.18); border-radius:7px; background:rgba(22,31,40,.7); color:#91a0ad; font:650 10px var(--font-ui); cursor:pointer; }
+.bp-context-rooms:hover { border-color:rgba(60,199,255,.5); color:#fff; }
+@media (max-width: 900px) { .bp-context-rooms { margin-top:0; padding:3px 7px; } }
+EOF
+
+          npm install --no-audit --no-fund
+          npm run build
+          python3 tools/apk/build_apk.py
+          rm -rf .github/workflows source
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: rebuild Dealersim contextual 2.5D build mode"
+          git push
