@@ -903,6 +903,94 @@ export function carPose(loc: Location, slotId: string, t: number): { x: number; 
   return { x: cx, y: cy, angle: f.h >= f.w ? Math.PI / 2 : 0 };
 }
 
+
+/**
+ * Isometric architecture pass.
+ * The base lot is still a tile plane, but Build Mode now adds real vertical
+ * facades, roof lips and depth shadows in screen space. This is deliberately
+ * data-driven from the existing zone grid, so every room automatically gains
+ * a 2.5D volume without changing the simulation/layout model.
+ */
+function drawIsoArchitecture(g: CanvasRenderingContext2D, cam: Camera, lot: Lot, dpr: number): void {
+  if (cam.projection !== 'iso') return;
+  const H = Math.max(14, Math.min(30, cam.zoom * 0.72));
+  const to = (x: number, y: number): { x: number; y: number } => {
+    const p = cam.toScreen(x, y);
+    return { x: p.x * dpr, y: p.y * dpr };
+  };
+  const indoor = (z: ZoneCode): boolean => isIndoor(z);
+
+  const facade = (a: {x:number;y:number}, b: {x:number;y:number}, col: string, depth: number): void => {
+    const aa = to(a.x, a.y), bb = to(b.x, b.y);
+    g.fillStyle = 'rgba(0,0,0,0.28)';
+    g.beginPath();
+    g.moveTo(aa.x + 3*dpr, aa.y + 5*dpr);
+    g.lineTo(bb.x + 3*dpr, bb.y + 5*dpr);
+    g.lineTo(bb.x + 3*dpr, bb.y + H*dpr + 5*dpr);
+    g.lineTo(aa.x + 3*dpr, aa.y + H*dpr + 5*dpr);
+    g.closePath(); g.fill();
+
+    g.fillStyle = col;
+    g.beginPath();
+    g.moveTo(aa.x, aa.y);
+    g.lineTo(bb.x, bb.y);
+    g.lineTo(bb.x, bb.y + H*dpr);
+    g.lineTo(aa.x, aa.y + H*dpr);
+    g.closePath(); g.fill();
+
+    g.strokeStyle = 'rgba(255,255,255,0.16)';
+    g.lineWidth = Math.max(1, 0.9*dpr);
+    g.beginPath(); g.moveTo(aa.x, aa.y); g.lineTo(bb.x, bb.y); g.stroke();
+
+    if (depth > 0) {
+      g.fillStyle = 'rgba(0,0,0,0.16)';
+      g.beginPath();
+      g.moveTo(aa.x, aa.y + H*dpr);
+      g.lineTo(bb.x, bb.y + H*dpr);
+      g.lineTo(bb.x, bb.y + (H+depth)*dpr);
+      g.lineTo(aa.x, aa.y + (H+depth)*dpr);
+      g.closePath(); g.fill();
+    }
+  };
+
+  // Only the two camera-facing edges receive a facade. This makes rooms read
+  // as solid buildings instead of a stretched diamond.
+  for (let y = 0; y < lot.h; y += 1) {
+    for (let x = 0; x < lot.w; x += 1) {
+      const z = zoneAt(lot, x, y);
+      if (!indoor(z)) continue;
+      const base = floorColor(z, lot);
+      const wall = WALL_STYLES.find((w) => w.id === styleFor(lot, z).walls) ?? WALL_STYLES[0];
+      const col = mix(wall.color, base, 0.22);
+
+      const east = x + 1 < lot.w ? zoneAt(lot, x + 1, y) : '.';
+      const south = y + 1 < lot.h ? zoneAt(lot, x, y + 1) : '.';
+      if (!indoor(east)) facade({x:x+1,y}, {x:x+1,y:y+1}, shadeHex(col, -30), 2);
+      if (!indoor(south)) facade({x,y:y+1}, {x:x+1,y:y+1}, shadeHex(col, -48), 2);
+    }
+  }
+
+  // Glass frontage / roof highlight gives the showroom a recognisable 3D edge.
+  for (const room of [ 's', 'r', 'l', 'q' ] as ZoneCode[]) {
+    if (!isIndoor(room)) continue;
+    const pts: {x:number;y:number}[] = [];
+    for (let y = 0; y < lot.h; y += 1) for (let x = 0; x < lot.w; x += 1) {
+      if (zoneAt(lot, x, y) !== room) continue;
+      if (x === 0 || zoneAt(lot, x-1, y) !== room) pts.push({x,y});
+      if (y === 0 || zoneAt(lot, x, y-1) !== room) pts.push({x:x+1,y});
+    }
+    if (!pts.length) continue;
+    const minX = Math.min(...pts.map(p => p.x)), maxX = Math.max(...pts.map(p => p.x));
+    const minY = Math.min(...pts.map(p => p.y)), maxY = Math.max(...pts.map(p => p.y));
+    const a = to(minX, minY), b = to(maxX, minY), c = to(maxX, maxY), d = to(minX, maxY);
+    g.fillStyle = 'rgba(255,255,255,0.045)';
+    g.beginPath(); g.moveTo(a.x,a.y-H*dpr*.45); g.lineTo(b.x,b.y-H*dpr*.45); g.lineTo(c.x,c.y-H*dpr*.45); g.lineTo(d.x,d.y-H*dpr*.45); g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,0.11)';
+    g.lineWidth = Math.max(1, dpr);
+    g.stroke();
+  }
+}
+
 // --------------------------------------------------------------- people --
 
 function drawPerson(g: CanvasRenderingContext2D, a: Agent, t: number, selected: boolean): void {
