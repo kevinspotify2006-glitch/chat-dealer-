@@ -21,6 +21,7 @@ import { modal } from '../dom';
 import type { StyleTarget } from '../../sim/lot';
 import { ARCHETYPE_BY_ID } from '../../data/game';
 import { OBJ_BY_ID, ZONE_BY_CODE } from '../../data/lot';
+import { contextForZone } from '../../data/buildcats';
 import { expectedLeads, interestLabel, waitingCustomers, canTestDrive } from '../../sim/customers';
 import { on } from '../../sim/bus';
 import { Camera } from '../world/camera';
@@ -66,10 +67,11 @@ interface Ui {
   cams: Record<string, { x: number; y: number; zoom: number }>;
   /** Phone build sheet height. */
   sheet: SheetSize;
+  context: import('../../data/buildcats').BuildContextId;
 }
 
 // Kept between visits so the dealership looks the way you left it.
-const ui: Ui = { build: false, tool: { kind: 'select' }, category: 'zones', search: '', filter: 'all', styleTarget: 'all', grid: true, snap: true, panel: null, selected: null, moveCar: null, flow: false, cams: {}, sheet: 'half' };
+const ui: Ui = { build: false, tool: { kind: 'select' }, category: 'zones', search: '', filter: 'all', styleTarget: 'all', grid: true, snap: true, panel: null, selected: null, moveCar: null, flow: false, cams: {}, sheet: 'half', context: 'showroom' };
 const crowd = new Crowd();
 
 const PANELS: Record<Exclude<PanelId, 'time'>, { title: string; icon: string }> = {
@@ -775,7 +777,7 @@ export function worldView(ctx: Ctx): View {
         if (e.pointerType !== 'mouse') { gesture = 'ghost'; moveStampTo(w); }
       } else if (t.kind === 'pick') {
         const obj = objectAt(w, false) ?? objectAt(w);
-        if (obj && OBJ_BY_ID[loc.lot.objects.find((o) => o.id === obj)?.defId ?? '']) { gesture = 'pressObj'; pressId = obj; pressAt = w; pickReturn = true; }
+        if (obj && OBJ_BY_ID[loc.lot.objects.find((o) => o.id === obj)?.defId ?? '']) { const zone = zoneAt(loc.lot, Math.floor(w.x), Math.floor(w.y)); ui.context = contextForZone(zone); gesture = 'pressObj'; pressId = obj; pressAt = w; pickReturn = true; }
       } else if (t.kind === 'paint') {
         const tile = tileAt(w);
         t.start = tile;
@@ -1210,6 +1212,7 @@ export function worldView(ctx: Ctx): View {
 
   // ---------------------------------------------------------------- build --
   const enterBuild = (category?: string, refit = true): void => {
+    cam.setProjection('iso');
     if (!ui.build) {
       ui.build = true;
       releaseBuild = pushBackHandler(() => {
@@ -1219,6 +1222,7 @@ export function worldView(ctx: Ctx): View {
       });
     }
     if (category) ui.category = category;
+    else if (ui.category === 'zones') ui.category = ui.context === 'showroom' ? 'showroom' : ui.context === 'workshop' ? 'service' : ui.context === 'office' ? 'staff' : ui.context === 'storage' ? 'storage' : ui.context === 'outdoor' ? 'parking' : 'customers';
     setGameMode('build');
     closePanel();
     closePop();
@@ -1235,6 +1239,7 @@ export function worldView(ctx: Ctx): View {
   };
   const exitBuild = (): void => {
     ui.build = false;
+    cam.setProjection('topdown');
     ui.tool = { kind: 'select' };
     ui.selected = null;
     root.classList.remove('building');
@@ -1326,6 +1331,8 @@ export function worldView(ctx: Ctx): View {
       },
       category: () => ui.category,
       setCategory: (c) => { ui.category = c; collapsePalette(false); paintBuild(); },
+      context: () => ui.context,
+      setContext: (area) => { ui.context = area; ui.category = area === 'showroom' ? 'showroom' : area === 'workshop' ? 'service' : area === 'office' ? 'staff' : area === 'storage' ? 'storage' : area === 'outdoor' ? 'parking' : 'customers'; ui.search = ''; paintBuild(); },
       search: () => ui.search,
       setSearch: (q) => { ui.search = q; },
       filter: () => ui.filter,
