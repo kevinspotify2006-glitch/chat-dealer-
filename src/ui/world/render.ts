@@ -911,6 +911,40 @@ export function carPose(loc: Location, slotId: string, t: number): { x: number; 
  * data-driven from the existing zone grid, so every room automatically gains
  * a 2.5D volume without changing the simulation/layout model.
  */
+function drawBuildLotPlatform(g: CanvasRenderingContext2D, cam: Camera, lot: Lot, dpr: number): void {
+  const p = (x:number,y:number) => { const s=cam.toScreen(x,y); return {x:s.x*dpr,y:s.y*dpr}; };
+  const a=p(0,0), b=p(lot.w,0), c=p(lot.w,lot.h), d=p(0,lot.h);
+  const depth=Math.max(10,Math.min(24,cam.zoom*0.55))*dpr;
+
+  // Cast a thick foundation downward so the lot reads as a physical platform.
+  g.fillStyle='rgba(0,0,0,0.48)';
+  g.beginPath(); g.moveTo(a.x,a.y+depth); g.lineTo(b.x,b.y+depth); g.lineTo(c.x,c.y+depth); g.lineTo(d.x,d.y+depth); g.closePath(); g.fill();
+  g.fillStyle='#3a3531';
+  g.beginPath(); g.moveTo(d.x,d.y); g.lineTo(c.x,c.y); g.lineTo(c.x,c.y+depth); g.lineTo(d.x,d.y+depth); g.closePath(); g.fill();
+  g.fillStyle='#302c29';
+  g.beginPath(); g.moveTo(b.x,b.y); g.lineTo(c.x,c.y); g.lineTo(c.x,c.y+depth); g.lineTo(b.x,b.y+depth); g.closePath(); g.fill();
+
+  // Top deck. Existing rooms remain visible through a light tint.
+  g.fillStyle='rgba(42,37,33,0.70)';
+  g.beginPath(); g.moveTo(a.x,a.y); g.lineTo(b.x,b.y); g.lineTo(c.x,c.y); g.lineTo(d.x,d.y); g.closePath(); g.fill();
+
+  // Strong isometric 1m construction grid.
+  g.strokeStyle='rgba(255,255,255,0.11)';
+  g.lineWidth=Math.max(0.7,0.8*dpr);
+  for(let x=0;x<=lot.w;x++){
+    const q1=p(x,0),q2=p(x,lot.h);
+    g.beginPath();g.moveTo(q1.x,q1.y);g.lineTo(q2.x,q2.y);g.stroke();
+  }
+  for(let y=0;y<=lot.h;y++){
+    const q1=p(0,y),q2=p(lot.w,y);
+    g.beginPath();g.moveTo(q1.x,q1.y);g.lineTo(q2.x,q2.y);g.stroke();
+  }
+
+  g.strokeStyle='rgba(255,154,77,0.78)';
+  g.lineWidth=Math.max(1.2,1.2*dpr);
+  g.beginPath();g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.lineTo(c.x,c.y);g.lineTo(d.x,d.y);g.closePath();g.stroke();
+}
+
 function drawIsoArchitecture(g: CanvasRenderingContext2D, cam: Camera, lot: Lot, dpr: number): void {
   if (cam.projection !== 'iso') return;
   const H = Math.max(14, Math.min(30, cam.zoom * 0.72));
@@ -1106,9 +1140,16 @@ export function renderScene(canvas: HTMLCanvasElement, s: Scene): void {
     lockedHud.push({ label: L.label, x: top ? L.w / 2 : lot.w + (L.w - lot.w) / 2, y: top ? -L.dy / 2 : lot.h / 2, tone: 'warn', icon: '🔒' });
   }
 
-  // The lot itself: ground plane first, then the raised 2.5D architecture.
+  // The lot itself: in Build Mode use a raised isometric construction platform.
   g.imageSmoothingEnabled = true;
   g.drawImage(cache.canvas, 0, 0, lot.w, lot.h);
+  if (iso && s.build) {
+    g.save();
+    g.setTransform(1,0,0,1,0,0);
+    drawBuildLotPlatform(g, cam, lot, dpr);
+    g.restore();
+    g.setTransform(z*.866,z*.5,-z*.866,z*.5,W/2-cam.x*z*.866-cam.y*(-z*.866),H/2-cam.x*z*.5-cam.y*z*.5);
+  }
   if (iso) {
     g.save();
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
